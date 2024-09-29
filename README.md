@@ -68,7 +68,6 @@ As well as additional states on already integrated games.
  	- Capcom CPS2 (1993–2003)
  	- Capcom CPS3 (1996–1999)
 
-[Full list of supported Arcade machines here](https://emulation.gametechwiki.com/index.php/FinalBurn_Neo)
 
 ## Installation
 
@@ -92,7 +91,7 @@ pip3 install -e .
 
 **Build from source**
 1. `pip install cmake wheel`
-2. `brew install pkg-config lua@5.1 libzip qt5 capnp`
+2. `brew install pkg-config lua@5.3 libzip qt@5 capnp`
 3. `echo 'export PATH="/opt/homebrew/opt/qt@5/bin:$PATH"' >> ~/.zshrc`
 4. `export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)`
 5. `pip install -e .`
@@ -102,10 +101,6 @@ pip3 install -e .
 2. `cmake . -DCMAKE_PREFIX_PATH=/usr/local/opt/qt -DBUILD_UI=ON -UPYLIB_DIRECTORY`
 3. `make -j$(sysctl hw.ncpu | cut -d: -f2)`
 4. `open "Gym Retro Integration.app"`
-
-
-Video on how to setup on Ubuntu and Windows:
-https://youtu.be/LRgGSQGNZeE
 
 Docker image for M1 Macs:
 https://github.com/arvganesh/stable-retro-docker
@@ -138,9 +133,9 @@ Additional examples:
 
 ```
 @misc{stable-retro,
-  author = {Mathieu and Poliquin},
-  title = {Stable Retro, a fork of OpenAI's gym-retro},
-  year = {2023},
+  author = {Poliquin, Mathieu},
+  title = {Stable Retro, a maintained fork of OpenAI's gym-retro},
+  year = {2024},
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/Farama-Foundation/stable-retro}},
@@ -148,6 +143,9 @@ Additional examples:
 ```
 
 ## Tutorials
+
+Windows WSL2 + Ubuntu 22.04 setup guide:
+https://www.youtube.com/watch?v=vPnJiUR21Og
 
 Game Integration tool:
 https://www.youtube.com/playlist?list=PLmwlWbdWpZVvWqzOxu0jVBy-CaRpYha0t
@@ -168,9 +166,9 @@ There is an effort to get this project to the [Farama Foundation Project Standar
 Plateforms:
 - Windows 10, 11 (via WSL2)
 - macOS 10.13 (High Sierra), 10.14 (Mojave)
-- Linux (manylinux1)
+- Linux (manylinux1). Ubuntu 22.04 is recommended
 
-CPU with `SSSE3` or better
+CPU with `SSE3` or better
 
 Supported Pythons: 3.7 to 3.12
 
@@ -185,6 +183,11 @@ See [LICENSES.md](https://github.com/Farama-Foundation/stable-retro/blob/master/
 Each game integration has files listing memory locations for in-game variables, reward functions based on those variables, episode end conditions, savestates at the beginning of levels and a file containing hashes of ROMs that work with these files.
 
 Please note that ROMs are not included and you must obtain them yourself.  Most ROM hashes are sourced from their respective No-Intro SHA-1 sums.
+
+Run this script in the roms folder you want to import. If the checksum matches it will import them in the related game folder in stable-retro.
+```bash
+python3 -m retro.import .
+```
 
 The following non-commercial ROMs are included with Stable Retro for testing purposes:
 

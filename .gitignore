@@ -143,3 +143,12 @@ Temporary
 # cibuildwheel
 wheelhouse
 tests/test_cibuildwheel/tmp_dockerfiles
+
+# cibuildwheel
+wheelhouse
+tests/test_cibuildwheel/tmp_dockerfiles
+
+# build artifacts
+*.cmake
+Makefile
+*.tmp
