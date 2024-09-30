@@ -152,3 +152,6 @@ tests/test_cibuildwheel/tmp_dockerfiles
 *.cmake
 Makefile
 *.tmp
+
+# non-public roms
+**/joust.zip

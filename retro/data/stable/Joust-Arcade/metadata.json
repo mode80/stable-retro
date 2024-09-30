@@ -1,0 +1,7 @@
+{
+  "default_state": "start_game_1p",
+  "default_player_state":[
+	"start_game_1p",
+	"start_game_2p"
+  ]
+}

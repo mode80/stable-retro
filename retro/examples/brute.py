@@ -20,6 +20,85 @@ import retro
 
 EXPLORATION_PARAM = 0.005
 
+class Discretizer(gym.ActionWrapper):
+    """ Wrap a gym environment and make it use discrete actions.  
+    Args: combos: ordered list of lists of valid button combinations """
+
+    def __init__(self, env, combos):
+        super().__init__(env)
+        assert isinstance(env.action_space, gym.spaces.MultiBinary)
+        buttons = env.unwrapped.buttons
+        self._decode_discrete_action = []
+        for combo in combos:
+            arr = np.array([False] * env.action_space.n)
+            for button in combo:
+                arr[buttons.index(button)] = True
+            self._decode_discrete_action.append(arr)
+
+        self.action_space = gym.spaces.Discrete(len(self._decode_discrete_action))
+
+    def action(self, act):
+        return self._decode_discrete_action[act].copy()
+
+
+class JoustDiscretizer(Discretizer):
+    """ Use Joust-specific discrete actions
+    based on https://github.com/openai/retro-baselines/blob/master/agents/sonic_util.py """
+    def __init__(self, env):
+        super().__init__(env=env, 
+            combos=[['LEFT'], ['RIGHT'], ['B'], ['LEFT', 'B'], ['RIGHT', 'B']]
+        )
+
+# class JoustDiscretizer(gym.ActionWrapper):
+#     """
+#     Wrap a gym-retro environment and make it use discrete actions for the Joust game.
+#     """
+#     def __init__(self, env):
+#         super()
+#         buttons = env.unwrapped.buttons
+#         # buttons = ["B", "A", "MODE", "START", "UP", "DOWN", "LEFT", "RIGHT", "C", "Y", "X", "Z"]
+#         combos=[['LEFT'], ['RIGHT'], ['B'], ['LEFT', 'B'], ['RIGHT', 'B']]
+#         # combos = [['LEFT'], ['RIGHT'], ['LEFT', 'DOWN'], ['RIGHT', 'DOWN'], ['DOWN'],
+#         #            ['DOWN', 'B'], ['B']]
+#         self._actions = []
+#         for action in combos:
+#             arr = np.array([False] * len(env.action_space))
+#             for button in action:
+#                 arr[buttons.index(button)] = True
+#             self._actions.append(arr)
+#         self.action_space = gym.spaces.Discrete(len(self._actions))
+
+#     def action(self, a): # pylint: disable=W0221
+#         return self._actions[a].copy()
+
+
+import time
+
+class FPSWrapper(gym.Wrapper):
+    def __init__(self, env, fps_calc_freq=100_000):
+        super().__init__(env)
+        self.fps_calc_freq = fps_calc_freq
+        self.step_times = []
+        self.last_print_time = time.time()
+        self.total_steps = 0
+
+    def step(self, action):
+        start_time = time.time()
+        observation, reward, done, truncated, info = self.env.step(action)
+        end_time = time.time()
+        
+        self.step_times.append(end_time - start_time)
+        self.total_steps += 1
+        
+        if len(self.step_times) >= self.fps_calc_freq:
+            current_time = time.time()
+            fps = self.fps_calc_freq / (current_time - self.last_print_time)
+            print(f"FPS: {fps:.2f}, Total Steps: {self.total_steps}")
+            self.step_times = []
+            self.last_print_time = current_time
+        
+        return observation, reward, done, truncated, info
+
 
 class Frameskip(gym.Wrapper):
     def __init__(self, env, skip=4):
@@ -176,13 +255,18 @@ def brute_retro(
     timestep_limit=1e8,
     state=retro.State.DEFAULT,
     scenario=None,
+    record=False
 ):
     env = retro.make(
         game,
         state,
-        use_restricted_actions=retro.Actions.DISCRETE,
+        # use_restricted_actions=retro.Actions.DISCRETE,
         scenario=scenario,
+        record=record
     )
+    env.render_mode= None
+    env = FPSWrapper(env)
+    env = JoustDiscretizer(env)
     env = Frameskip(env)
     env = TimeLimit(env, max_episode_steps=max_episode_steps)
 
@@ -196,7 +280,7 @@ def brute_retro(
         if rew > best_rew:
             print(f"new best reward {best_rew} => {rew}")
             best_rew = rew
-            env.unwrapped.record_movie("best.bk2")
+            env.unwrapped.record_movie(f"best_{best_rew}.bk2")
             env.reset()
             for act in acts:
                 env.step(act)
@@ -209,12 +293,12 @@ def brute_retro(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--game", default="Airstriker-Genesis")
+    parser.add_argument("--game", default="Joust-Arcade")
     parser.add_argument("--state", default=retro.State.DEFAULT)
     parser.add_argument("--scenario", default=None)
     args = parser.parse_args()
 
-    brute_retro(game=args.game, state=args.state, scenario=args.scenario)
+    brute_retro(game=args.game, state=args.state, scenario=args.scenario, max_episode_steps=500_000)
 
 
 if __name__ == "__main__":

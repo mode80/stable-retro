@@ -1,0 +1,20 @@
+{
+  "info": {
+    "credits": {
+      "address": 58099,
+      "type": "|u1"
+    },
+    "lives": {
+      "address": 57939,
+      "type": "|u1"
+    },
+    "score_lower4": {
+      "address": 57934,
+      "type": "<d2"
+    },
+    "score_upper4": {
+      "address": 57932,
+      "type": "<d2"
+    }
+  }
+}

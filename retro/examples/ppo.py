@@ -3,20 +3,47 @@ Train an agent using Proximal Policy Optimization from Stable Baselines 3
 """
 
 import argparse
-
+from copy import deepcopy
+import os
 import gymnasium as gym
 import numpy as np
 from gymnasium.wrappers.time_limit import TimeLimit
 from stable_baselines3 import PPO
 from stable_baselines3.common.atari_wrappers import ClipRewardEnv, WarpFrame
 from stable_baselines3.common.vec_env import (
-    SubprocVecEnv,
-    VecFrameStack,
-    VecTransposeImage,
+    SubprocVecEnv, VecFrameStack, VecTransposeImage, VecVideoRecorder
 )
-
 import retro
+import torch
+from stable_baselines3.common.callbacks import BaseCallback
 
+class SaveBestModel(BaseCallback):
+    def __init__(self, freq:int= 10, save_path:str="."):
+        super()
+        self.freq = freq
+        self.save_path = save_path
+        self.best_reward = -float('inf')
+        self.n_calls = 0
+
+    def _on_step(self) -> bool:
+        self.n_calls += 1
+        return True
+
+    def _on_rollout_end(self) -> bool:
+        if self.n_calls % self.freq == 0:
+            this_reward = self.locals["rewards"][-1]
+            if this_reward > self.best_reward:
+                print(f"New best reward {self.best_reward} => {this_reward}")
+                self.best_reward = this_reward
+                print(f"Saving best model to {self.save_path}")
+                self.model.save(self.save_path)
+                # env=self.model.get_env()
+                # env.unwrapped.record_movie(f"best_{best_rew}.bk2")
+                # env.reset()
+                # for act in acts:
+                #     env.step(act)
+                # env.unwrapped.stop_record()
+        return True
 
 class StochasticFrameSkip(gym.Wrapper):
     def __init__(self, env, n, stickprob):
@@ -69,28 +96,40 @@ def make_retro(*, game, state=None, max_episode_steps=4500, **kwargs):
     return env
 
 
-def wrap_deepmind_retro(env):
-    """
-    Configure environment for retro games, using config similar to DeepMind-style Atari in openai/baseline's wrap_deepmind
-    """
-    env = WarpFrame(env)
-    env = ClipRewardEnv(env)
-    return env
-
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--game", default="Airstriker-Genesis")
+    parser.add_argument("--game", default="Joust-Arcade")
     parser.add_argument("--state", default=retro.State.DEFAULT)
     parser.add_argument("--scenario", default=None)
+    parser.add_argument("--resume", default=True)
     args = parser.parse_args()
 
     def make_env():
-        env = make_retro(game=args.game, state=args.state, scenario=args.scenario)
-        env = wrap_deepmind_retro(env)
+        env = make_retro(game=args.game, state=args.state, scenario=args.scenario, render_mode='rgb_array')
+        env = WarpFrame(env)
+        # env = ClipRewardEnv(env)
         return env
 
-    venv = VecTransposeImage(VecFrameStack(SubprocVecEnv([make_env] * 8), n_stack=4))
+    PROCESS_COUNT = 64 
+
+    # torch.set_default_dtype(torch.float32)
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")# Use Metal (MPS) backend if available
+    # device = "cpu"
+
+    venv =  VecTransposeImage( 
+                VecFrameStack(
+                    # VecVideoRecorder(
+                        SubprocVecEnv( 
+                            [make_env] * PROCESS_COUNT 
+                        ) 
+                    #     , video_folder="videos"
+                    #     , record_video_trigger=lambda x: False  # We'll trigger manually
+                    #     , video_length=1000
+                    # )
+                    , n_stack=4
+                )
+            )
+
     model = PPO(
         policy="CnnPolicy",
         env=venv,
@@ -103,10 +142,18 @@ def main():
         clip_range=0.1,
         ent_coef=0.01,
         verbose=1,
+        device=device,
     )
+
+
+    best_model_path = "./best_model.zip"
+    if args.resume and os.path.exists(best_model_path):
+        model = PPO.load(best_model_path, env=venv, device=device)
+
     model.learn(
         total_timesteps=100_000_000,
         log_interval=1,
+        callback = SaveBestModel(save_path=best_model_path)
     )
 
 
